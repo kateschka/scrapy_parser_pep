@@ -1,27 +1,32 @@
-import os
-
+import csv
+from collections import defaultdict
 from datetime import datetime
+
+from pep_parse.settings import (
+    BASE_DIR,
+    RESULTS_DIR,
+)
 
 
 class PepParsePipeline:
 
     def open_spider(self, spider):
-        self.status_count = {}
-        feed_path = list(spider.settings.get('FEEDS').keys())[0]
-        self.results_dir = os.path.dirname(feed_path)
+        self.status_count = defaultdict(int)
+        self.results_dir = RESULTS_DIR
 
     def close_spider(self, spider):
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = os.path.join(
-            self.results_dir, f'status_summary_{timestamp}.csv')
+        file_path = f'{self.results_dir}/status_summary_{timestamp}.csv'
+        filename = BASE_DIR / file_path
 
         with open(filename, 'w', encoding='utf-8') as f:
-            f.write('Статус,Количество\n')
-            for status, count in self.status_count.items():
-                f.write(f'{status},{count}\n')
-            f.write(f'Total,{sum(self.status_count.values())}\n')
+            status_summary = [('Статус', 'Количество')]
+            status_summary.extend(self.status_count.items())
+            status_summary.append(('Total', sum(self.status_count.values())))
+            writer = csv.writer(f, lineterminator='\n')
+            writer.writerows(status_summary)
 
     def process_item(self, item, spider):
         status = item['status']
-        self.status_count[status] = self.status_count.get(status, 0) + 1
+        self.status_count[status] += 1
         return item
